@@ -1,62 +1,129 @@
-import React from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   Pressable,
   FlatList,
+  Animated,
 } from 'react-native';
-import * as Linking from 'expo-linking';
+import LottieView from 'lottie-react-native';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTheme } from '../context/ThemeContext';
 import { useApp } from '../context/AppContext';
 import { NewsItem } from '../types';
+import { RootStackParamList } from '../navigation/types';
+import RenderHTML from 'react-native-render-html';
 
 export const SavedArticlesScreen: React.FC = () => {
   const { theme } = useTheme();
   const { savedArticles, unsaveArticle, getTextScale } = useApp();
+  const [hasAnimated, setHasAnimated] = useState(false);
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   const scale = getTextScale();
 
-  const handleOpenArticle = (link: string) => {
-    if (link) {
-      Linking.openURL(link);
-    }
+  // Only animate on initial mount
+  useEffect(() => {
+    const timer = setTimeout(() => setHasAnimated(true), 500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const handleOpenArticle = (article: NewsItem) => {
+    navigation.navigate('ArticleDetail', { article });
   };
 
-  const renderItem = ({ item }: { item: NewsItem }) => (
-    <View style={[styles.articleRow, { borderBottomColor: theme.separator }]}>
-      <Pressable
-        style={styles.articleContent}
-        onPress={() => handleOpenArticle(item.link)}
+  const AnimatedItem = ({ item, index }: { item: NewsItem; index: number }) => {
+    const fadeAnim = useRef(new Animated.Value(hasAnimated ? 1 : 0)).current;
+    const slideAnim = useRef(new Animated.Value(hasAnimated ? 0 : 30)).current;
+
+    useEffect(() => {
+      if (!hasAnimated) {
+        Animated.parallel([
+          Animated.timing(fadeAnim, {
+            toValue: 1,
+            duration: 300,
+            delay: index * 50,
+            useNativeDriver: true,
+          }),
+          Animated.timing(slideAnim, {
+            toValue: 0,
+            duration: 300,
+            delay: index * 50,
+            useNativeDriver: true,
+          }),
+        ]).start();
+      }
+    }, [fadeAnim, slideAnim, index]);
+
+    return (
+      <Animated.View
+        style={[
+          styles.articleRow,
+          { borderBottomColor: theme.separator },
+          {
+            opacity: fadeAnim,
+            transform: [{ translateY: slideAnim }],
+          },
+        ]}
       >
-        <Text style={[styles.source, { color: theme.textSecondary }]}>
-          {item.source}
-        </Text>
-        <Text
-          style={[styles.articleTitle, { color: theme.text, fontSize: 16 * scale }]}
-          numberOfLines={3}
+        <Pressable
+          style={styles.articleContent}
+          onPress={() => handleOpenArticle(item)}
         >
-          {item.title}
-        </Text>
-        {item.pubDate && (
-          <Text style={[styles.time, { color: theme.textMuted }]}>
-            {item.pubDate}
+          <Text style={[styles.source, { color: theme.textSecondary }]}>
+            {item.sourceName}
           </Text>
-        )}
-      </Pressable>
-      <Pressable
-        onPress={() => unsaveArticle(item.id)}
-        style={styles.removeButton}
-        hitSlop={10}
-      >
-        <Text style={[styles.removeIcon, { color: theme.textMuted }]}>✕</Text>
-      </Pressable>
-    </View>
+          <RenderHTML
+            contentWidth={300}
+            source={{ html: item.title }}
+            baseStyle={{
+              color: theme.text,
+              fontSize: 16 * scale,
+              lineHeight: 22 * scale,
+              fontWeight: '600',
+              marginBottom: 8,
+            }}
+            tagsStyles={{
+              body: { color: theme.text, fontSize: 16 * scale, lineHeight: 22 * scale, fontWeight: '600', marginBottom: 8 },
+            }}
+          />
+          {item.pubDate && (
+            <Text style={[styles.time, { color: theme.textMuted }]}>
+              {item.pubDate}
+            </Text>
+          )}
+        </Pressable>
+        <Pressable
+          onPress={() => unsaveArticle(item.id)}
+          style={styles.removeButton}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Text style={[styles.removeIcon, { color: theme.textMuted }]}>✕</Text>
+        </Pressable>
+      </Animated.View>
+    );
+  };
+
+  const renderItem = ({ item, index }: { item: NewsItem; index: number }) => (
+    <AnimatedItem item={item} index={index} />
   );
 
   const EmptyState = () => (
     <View style={styles.emptyState}>
-      <Text style={[styles.emptyIcon, { color: theme.textMuted }]}>☆</Text>
+      <LottieView
+        source={require('../assets/animations/empty.json')}
+        autoPlay
+        loop
+        style={styles.emptyAnimation}
+        colorFilters={[
+          { keypath: 'Paper', color: theme.text },
+          { keypath: 'Line 1', color: theme.text },
+          { keypath: 'Line 2', color: theme.text },
+          { keypath: 'Line 3', color: theme.text },
+        ]}
+      />
       <Text style={[styles.emptyTitle, { color: theme.text }]}>
         No saved articles
       </Text>
@@ -144,9 +211,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 40,
   },
-  emptyIcon: {
-    fontSize: 64,
-    marginBottom: 20,
+  emptyAnimation: {
+    width: 150,
+    height: 150,
+    marginBottom: 16,
   },
   emptyTitle: {
     fontSize: 20,

@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   Pressable,
+  Animated,
 } from 'react-native';
+import LottieView from 'lottie-react-native';
 import { useTheme } from '../context/ThemeContext';
 import { useApp } from '../context/AppContext';
 
@@ -16,9 +18,95 @@ const TEXT_SIZE_OPTIONS: { value: TextSize; label: string; titleSize: number; bo
   { value: 'large', label: 'Large', titleSize: 20, bodySize: 17 },
 ];
 
+interface OptionItemProps {
+  option: typeof TEXT_SIZE_OPTIONS[0];
+  isSelected: boolean;
+  onSelect: () => void;
+}
+
+const OptionItem: React.FC<OptionItemProps> = ({ option, isSelected, onSelect }) => {
+  const { theme } = useTheme();
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const successAnim = useRef<LottieView>(null);
+  const [showSuccess, setShowSuccess] = React.useState(false);
+
+  const handlePress = () => {
+    if (!isSelected) {
+      setShowSuccess(true);
+      Animated.sequence([
+        Animated.timing(scaleAnim, {
+          toValue: 0.97,
+          duration: 100,
+          useNativeDriver: true,
+        }),
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          friction: 3,
+          tension: 100,
+          useNativeDriver: true,
+        }),
+      ]).start();
+      onSelect();
+      setTimeout(() => setShowSuccess(false), 600);
+    }
+  };
+
+  return (
+    <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+      <Pressable
+        style={[
+          styles.option,
+          { borderBottomColor: theme.separator },
+          isSelected && { backgroundColor: theme.tagBackground },
+        ]}
+        onPress={handlePress}
+      >
+        <View style={styles.optionContent}>
+          <Text style={[styles.optionLabel, { color: theme.text }]}>
+            {option.label}
+          </Text>
+        </View>
+        {showSuccess ? (
+          <LottieView
+            ref={successAnim}
+            source={require('../assets/animations/success.json')}
+            autoPlay
+            loop={false}
+            style={styles.successAnimation}
+            colorFilters={[
+              { keypath: 'Check', color: theme.text },
+              { keypath: 'Circle', color: theme.text },
+            ]}
+          />
+        ) : isSelected ? (
+          <Text style={[styles.checkmark, { color: theme.text }]}>✓</Text>
+        ) : null}
+      </Pressable>
+    </Animated.View>
+  );
+};
+
 export const TextSizeScreen: React.FC = () => {
   const { theme } = useTheme();
   const { textSize, setTextSize } = useApp();
+  const previewFadeAnim = useRef(new Animated.Value(1)).current;
+
+  const handleSizeChange = (size: TextSize) => {
+    // Animate preview change
+    Animated.sequence([
+      Animated.timing(previewFadeAnim, {
+        toValue: 0.5,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+      Animated.timing(previewFadeAnim, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+    ]).start();
+    setTextSize(size);
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -27,31 +115,16 @@ export const TextSizeScreen: React.FC = () => {
           SELECT SIZE
         </Text>
 
-        {TEXT_SIZE_OPTIONS.map((option) => {
-          const isSelected = textSize === option.value;
-          return (
-            <Pressable
-              key={option.value}
-              style={[
-                styles.option,
-                { borderBottomColor: theme.separator },
-                isSelected && { backgroundColor: theme.tagBackground },
-              ]}
-              onPress={() => setTextSize(option.value)}
-            >
-              <View style={styles.optionContent}>
-                <Text style={[styles.optionLabel, { color: theme.text }]}>
-                  {option.label}
-                </Text>
-              </View>
-              {isSelected && (
-                <Text style={[styles.checkmark, { color: theme.text }]}>✓</Text>
-              )}
-            </Pressable>
-          );
-        })}
+        {TEXT_SIZE_OPTIONS.map((option) => (
+          <OptionItem
+            key={option.value}
+            option={option}
+            isSelected={textSize === option.value}
+            onSelect={() => handleSizeChange(option.value)}
+          />
+        ))}
 
-        <View style={[styles.preview, { borderColor: theme.separator }]}>
+        <Animated.View style={[styles.preview, { borderColor: theme.separator, opacity: previewFadeAnim }]}>
           <Text style={[styles.previewLabel, { color: theme.textMuted }]}>
             PREVIEW
           </Text>
@@ -74,7 +147,7 @@ export const TextSizeScreen: React.FC = () => {
             This is how your articles will appear with the selected text size.
             Adjust to your preference for comfortable reading.
           </Text>
-        </View>
+        </Animated.View>
       </View>
     </View>
   );
@@ -113,6 +186,10 @@ const styles = StyleSheet.create({
   checkmark: {
     fontSize: 18,
     fontWeight: '600',
+  },
+  successAnimation: {
+    width: 32,
+    height: 32,
   },
   preview: {
     marginTop: 32,

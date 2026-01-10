@@ -25,11 +25,13 @@ interface SidebarProps {
   onOpenTextSize: () => void;
   onOpenManageSources: () => void;
   onOpenSettings: () => void;
+  onOpenHelp: () => void;
+  onOpenAbout: () => void;
 }
 
 interface MenuItemProps {
   config: MenuItemConfig;
-  label?: string;  // Override label
+  label?: string;
   onPress?: () => void;
   isActive?: boolean;
   badge?: number;
@@ -38,7 +40,6 @@ interface MenuItemProps {
 const MenuItem: React.FC<MenuItemProps> = ({ config, label, onPress, isActive, badge }) => {
   const { theme } = useTheme();
 
-  // Use filled icon if active and available
   const IconComponent = isActive && config.iconFilled ? config.iconFilled : config.icon;
   const displayLabel = label || config.label;
   const iconColor = isActive ? theme.text : theme.textSecondary;
@@ -62,8 +63,8 @@ const MenuItem: React.FC<MenuItemProps> = ({ config, label, onPress, isActive, b
         {displayLabel}
       </Text>
       {badge !== undefined && badge > 0 && (
-        <View style={[styles.badge, { backgroundColor: theme.accent }]}>
-          <Text style={styles.badgeText}>{badge}</Text>
+        <View style={[styles.badge, { backgroundColor: theme.text }]}>
+          <Text style={[styles.badgeText, { color: theme.background }]}>{badge}</Text>
         </View>
       )}
     </Pressable>
@@ -80,15 +81,6 @@ const SectionHeader: React.FC<{ title: string }> = ({ title }) => {
   );
 };
 
-// Helper to find a menu item config by id
-const findItemConfig = (id: MenuItemId): MenuItemConfig | undefined => {
-  for (const section of SIDEBAR_SECTIONS) {
-    const item = section.items.find(i => i.id === id);
-    if (item) return item;
-  }
-  return undefined;
-};
-
 export const Sidebar: React.FC<SidebarProps> = ({
   isOpen,
   onClose,
@@ -98,6 +90,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenTextSize,
   onOpenManageSources,
   onOpenSettings,
+  onOpenHelp,
+  onOpenAbout,
 }) => {
   const { theme, isDark, toggleTheme } = useTheme();
   const { savedArticles, textSize, notificationsEnabled, sources } = useApp();
@@ -109,7 +103,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
     setTimeout(action, 100);
   };
 
-  // Map of menu item handlers and dynamic properties
   const menuItemHandlers: Record<MenuItemId, {
     onPress?: () => void;
     label?: string;
@@ -140,10 +133,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
       onPress: () => handleMenuItem(onOpenSettings),
     },
     help: {
-      onPress: undefined, // TODO: Implement
+      onPress: () => handleMenuItem(onOpenHelp),
     },
     about: {
-      onPress: undefined, // TODO: Implement
+      onPress: () => handleMenuItem(onOpenAbout),
     },
   };
 
@@ -247,7 +240,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
   },
   badgeText: {
-    color: '#fff',
     fontSize: 11,
     fontWeight: '700',
   },

@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   Switch,
   ScrollView,
+  Animated,
 } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { useApp } from '../context/AppContext';
@@ -12,45 +13,69 @@ import { useApp } from '../context/AppContext';
 export const SettingsScreen: React.FC = () => {
   const { theme } = useTheme();
   const { notificationsEnabled, toggleNotifications } = useApp();
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(20)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [fadeAnim, slideAnim]);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: theme.textMuted }]}>
-            NOTIFICATIONS
-          </Text>
-          <View style={[styles.settingRow, { borderBottomColor: theme.separator }]}>
-            <View style={styles.settingInfo}>
-              <Text style={[styles.settingLabel, { color: theme.text }]}>
-                Push Notifications
-              </Text>
-              <Text style={[styles.settingDescription, { color: theme.textMuted }]}>
-                Receive alerts for breaking news
-              </Text>
+        <Animated.View
+          style={{
+            opacity: fadeAnim,
+            transform: [{ translateY: slideAnim }],
+          }}
+        >
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: theme.textMuted }]}>
+              NOTIFICATIONS
+            </Text>
+            <View style={[styles.settingRow, { borderBottomColor: theme.separator }]}>
+              <View style={styles.settingInfo}>
+                <Text style={[styles.settingLabel, { color: theme.text }]}>
+                  Push Notifications
+                </Text>
+                <Text style={[styles.settingDescription, { color: theme.textMuted }]}>
+                  Receive alerts for breaking news
+                </Text>
+              </View>
+              <Switch
+                value={Boolean(notificationsEnabled)}
+                onValueChange={toggleNotifications}
+                trackColor={{ false: theme.separator, true: theme.text }}
+                thumbColor="#fff"
+              />
             </View>
-            <Switch
-              value={Boolean(notificationsEnabled)}
-              onValueChange={toggleNotifications}
-              trackColor={{ false: theme.separator, true: theme.text }}
-              thumbColor="#fff"
-            />
           </View>
-        </View>
 
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: theme.textMuted }]}>
-            ABOUT
-          </Text>
-          <View style={[styles.infoRow, { borderBottomColor: theme.separator }]}>
-            <Text style={[styles.infoLabel, { color: theme.text }]}>Version</Text>
-            <Text style={[styles.infoValue, { color: theme.textMuted }]}>1.0.0</Text>
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: theme.textMuted }]}>
+              ABOUT
+            </Text>
+            <View style={[styles.infoRow, { borderBottomColor: theme.separator }]}>
+              <Text style={[styles.infoLabel, { color: theme.text }]}>Version</Text>
+              <Text style={[styles.infoValue, { color: theme.textMuted }]}>1.0.0</Text>
+            </View>
+            <View style={[styles.infoRow, { borderBottomColor: theme.separator }]}>
+              <Text style={[styles.infoLabel, { color: theme.text }]}>Build</Text>
+              <Text style={[styles.infoValue, { color: theme.textMuted }]}>2024.01</Text>
+            </View>
           </View>
-          <View style={[styles.infoRow, { borderBottomColor: theme.separator }]}>
-            <Text style={[styles.infoLabel, { color: theme.text }]}>Build</Text>
-            <Text style={[styles.infoValue, { color: theme.textMuted }]}>2024.01</Text>
-          </View>
-        </View>
+        </Animated.View>
       </ScrollView>
     </View>
   );

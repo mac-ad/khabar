@@ -3,13 +3,22 @@ export interface NewsItem {
   title: string;
   link: string;
   pubDate: string;
-  source: string;
+  originalPubDate: string;
+  sourceSlug: string;
+  sourceName: string;
   tags: string[];
+  description: string;
+  image?: string;
+  author?: string;
 }
+
+export type FeedCategory = 'local' | 'international';
 
 export interface RSSFeed {
   name: string;
+  slug: string;
   url: string;
+  category: FeedCategory;
 }
 
 export interface ParsedRSSItem {
@@ -18,6 +27,10 @@ export interface ParsedRSSItem {
   pubDate?: string;
   guid?: string;
   category?: string | string[] | { '#text': string }[];
+  description?: string;
+  published?: string;
+  updated?: string;
+  id?: string;
 }
 
 export interface ParsedRSSChannel {

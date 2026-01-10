@@ -1,62 +1,117 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  Switch,
+  Pressable,
   ScrollView,
 } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { useApp } from '../context/AppContext';
+import { FeedCategory } from '../types';
+
+interface SourceConfig {
+  url: string;
+  name: string;
+  enabled: boolean;
+  category: FeedCategory;
+}
+
+const TABS: { key: FeedCategory; label: string }[] = [
+  { key: 'local', label: 'Local' },
+  { key: 'international', label: 'World' },
+];
 
 export const ManageSourcesScreen: React.FC = () => {
   const { theme } = useTheme();
   const { sources, toggleSource } = useApp();
+  const [activeTab, setActiveTab] = useState<FeedCategory>('local');
 
-  const enabledCount = sources.filter(s => s.enabled).length;
+  const filteredSources = sources.filter(s => s.category === activeTab);
+  const enabledCount = filteredSources.filter(s => s.enabled).length;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
+      {/* Tab Bar */}
+      <View style={[styles.tabBar, { borderBottomColor: theme.separator }]}>
+        {TABS.map((tab) => {
+          const isActive = activeTab === tab.key;
+          return (
+            <Pressable
+              key={tab.key}
+              onPress={() => setActiveTab(tab.key)}
+              style={[
+                styles.tab,
+                isActive && { borderBottomColor: theme.text, borderBottomWidth: 2 },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.tabLabel,
+                  { color: isActive ? theme.text : theme.textMuted },
+                ]}
+              >
+                {tab.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      {/* Summary */}
       <View style={[styles.summary, { borderBottomColor: theme.separator }]}>
         <Text style={[styles.summaryText, { color: theme.textMuted }]}>
-          {enabledCount} of {sources.length} sources enabled
+          {enabledCount} of {filteredSources.length} enabled
         </Text>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={[styles.sectionTitle, { color: theme.textMuted }]}>
-          NEWS SOURCES
-        </Text>
-
-        {sources.map((source) => (
-          <View
+      {/* Source List */}
+      <ScrollView 
+        style={styles.list} 
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.listContent}
+      >
+        {filteredSources.map((source) => (
+          <Pressable
             key={source.url}
-            style={[styles.sourceRow, { borderBottomColor: theme.separator }]}
+            onPress={() => toggleSource(source.url)}
+            style={({ pressed }) => [
+              styles.sourceRow,
+              { 
+                borderBottomColor: theme.separator,
+                opacity: pressed ? 0.6 : 1,
+              },
+            ]}
           >
             <View style={styles.sourceInfo}>
-              <Text style={[styles.sourceName, { color: theme.text }]}>
+              <Text 
+                style={[
+                  styles.sourceName, 
+                  { color: source.enabled ? theme.text : theme.textMuted }
+                ]}
+              >
                 {source.name}
               </Text>
-              <Text
-                style={[styles.sourceUrl, { color: theme.textMuted }]}
-                numberOfLines={1}
-              >
-                {source.url.replace(/^https?:\/\//, '').split('/')[0]}
-              </Text>
             </View>
-            <Switch
-              value={Boolean(source.enabled)}
-              onValueChange={() => toggleSource(source.url)}
-              trackColor={{ false: theme.separator, true: theme.text }}
-              thumbColor="#fff"
-            />
-          </View>
+            <View
+              style={[
+                styles.toggle,
+                {
+                  backgroundColor: source.enabled ? theme.text : 'transparent',
+                  borderColor: source.enabled ? theme.text : theme.textMuted,
+                },
+              ]}
+            >
+              {source.enabled && (
+                <View style={[styles.toggleInner, { backgroundColor: theme.background }]} />
+              )}
+            </View>
+          </Pressable>
         ))}
 
         <View style={styles.footer}>
           <Text style={[styles.footerText, { color: theme.textMuted }]}>
-            Disabled sources won't appear in your feed.
-            Pull to refresh after making changes.
+            Disabled sources won't appear in your feed
           </Text>
         </View>
       </ScrollView>
@@ -68,29 +123,38 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  tabBar: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  tabLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    letterSpacing: 0.3,
+  },
   summary: {
     paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingVertical: 10,
     borderBottomWidth: 1,
   },
   summaryText: {
-    fontSize: 14,
+    fontSize: 13,
   },
-  content: {
+  list: {
     flex: 1,
   },
-  sectionTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 1.5,
-    paddingHorizontal: 20,
-    paddingTop: 24,
-    marginBottom: 12,
+  listContent: {
+    paddingBottom: 40,
   },
   sourceRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
@@ -101,11 +165,20 @@ const styles = StyleSheet.create({
   },
   sourceName: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '500',
   },
-  sourceUrl: {
-    fontSize: 13,
-    marginTop: 4,
+  toggle: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  toggleInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
   },
   footer: {
     paddingHorizontal: 20,
@@ -113,7 +186,6 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 13,
-    lineHeight: 20,
     textAlign: 'center',
   },
 });

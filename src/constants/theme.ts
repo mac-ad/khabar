@@ -26,10 +26,10 @@ export const darkTheme = {
 
 export type Theme = typeof lightTheme;
 
-// Source colors - now grayscale
+// Source colors - keyed by slug, now grayscale
 export const SOURCE_COLORS: Record<string, { light: string; dark: string }> = {
-  'BBC News': { light: '#000000', dark: '#FFFFFF' },
-  'TechCrunch': { light: '#000000', dark: '#FFFFFF' },
-  'The Verge': { light: '#000000', dark: '#FFFFFF' },
-  'Reuters': { light: '#000000', dark: '#FFFFFF' },
+  'bbc-news': { light: '#000000', dark: '#FFFFFF' },
+  'techcrunch': { light: '#000000', dark: '#FFFFFF' },
+  'the-verge': { light: '#000000', dark: '#FFFFFF' },
+  'reuters': { light: '#000000', dark: '#FFFFFF' },
 };

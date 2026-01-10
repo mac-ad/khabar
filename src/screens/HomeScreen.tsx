@@ -3,6 +3,7 @@ import { StyleSheet, View, Text, StatusBar, Pressable, Animated, Dimensions } fr
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useNetInfo } from '@react-native-community/netinfo';
 import { NewsList } from '../components/NewsList';
 import { Sidebar } from '../components/Sidebar';
 import { fetchAllFeeds } from '../services/feedService';
@@ -10,6 +11,8 @@ import { NewsItem } from '../types';
 import { useTheme } from '../context/ThemeContext';
 import { useApp } from '../context/AppContext';
 import { RootStackParamList } from '../navigation/types';
+import { ThemeIcon } from '../constants/sidebarConfig';
+import { Moon } from '../icons';
 
 const { width } = Dimensions.get('window');
 const SIDEBAR_WIDTH = width * 0.75;
@@ -23,11 +26,16 @@ type Props = {
 export const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const { theme, isDark, toggleTheme } = useTheme();
   const { getEnabledFeeds } = useApp();
+  const netInfo = useNetInfo();
   const [news, setNews] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Derive connection status from netInfo
+  // null means still determining, so we treat it as potentially connected
+  const isConnected = netInfo.isConnected === null ? true : (netInfo.isConnected && netInfo.isInternetReachable !== false);
 
   const slideAnim = useRef(new Animated.Value(-SIDEBAR_WIDTH)).current;
   const isSidebarOpenRef = useRef(false);
@@ -114,32 +122,51 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
       setError(null);
 
       const enabledFeeds = getEnabledFeeds();
-      const items = await fetchAllFeeds(enabledFeeds);
-      setNews(items);
 
-      if (items.length === 0) {
+      if (!isConnected) {
+        setError('No internet connection. Please check your network and try again.');
+        return;
+      }
+
+      const items = await fetchAllFeeds(enabledFeeds);
+
+      if (items.length > 0) {
+        setNews(items);
+      } else {
         setError('Unable to load news. Check your connection or enable more sources.');
       }
     } catch (err) {
-      setError('Something went wrong.');
+      setError('Something went wrong. Please try again.');
       console.error('Error loading news:', err);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [getEnabledFeeds]);
+  }, [getEnabledFeeds, isConnected]);
 
+  // Track if initial load has happened
+  const hasLoadedRef = useRef(false);
+
+  // Initial load - wait for network info to be determined
   useEffect(() => {
-    loadNews();
-  }, [loadNews]);
+    // Only load once, and wait for netInfo to be determined (not null)
+    if (!hasLoadedRef.current && netInfo.isConnected !== null) {
+      hasLoadedRef.current = true;
+      loadNews();
+    }
+  }, [loadNews, netInfo.isConnected]);
 
-  // Reload news when screen comes into focus
+  // Only reload when returning from Sources screen (where feeds may have changed)
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
+      // Skip if this is the initial mount or if we have news already
+      if (hasLoadedRef.current && news.length > 0) {
+        return;
+      }
       loadNews();
     });
     return unsubscribe;
-  }, [navigation, loadNews]);
+  }, [navigation, loadNews, news.length]);
 
   const handleRefresh = useCallback(() => {
     loadNews(true);
@@ -178,11 +205,11 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
           {/* Theme Toggle */}
           <Pressable
             onPress={toggleTheme}
-            style={[styles.themeToggle, { borderColor: theme.separator }]}
+            style={[styles.themeToggle]}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
             <Text style={[styles.themeToggleText, { color: theme.textSecondary }]}>
-              {isDark ? 'LIGHT' : 'DARK'}
+              {isDark ? <ThemeIcon width={20} height={20} color={theme.text} /> : <Moon width={20} height={20} color={theme.text} />}
             </Text>
           </Pressable>
 
@@ -190,6 +217,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
           <Text style={[styles.date, { color: theme.textMuted }]}>{today}</Text>
         </View>
         <View style={[styles.headerLine, { backgroundColor: theme.headerLine }]} />
+
         <NewsList
           items={news}
           loading={loading}
@@ -235,6 +263,8 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
           onOpenTextSize={() => navigateTo('TextSize')}
           onOpenManageSources={() => navigateTo('Sources')}
           onOpenSettings={() => navigateTo('Settings')}
+          onOpenHelp={() => navigateTo('Help')}
+          onOpenAbout={() => navigateTo('About')}
         />
       </Animated.View>
     </View>
@@ -274,11 +304,10 @@ const styles = StyleSheet.create({
     right: 20,
     paddingHorizontal: 10,
     paddingVertical: 5,
-    borderWidth: 1,
     borderRadius: 4,
   },
   themeToggleText: {
-    fontSize: 10,
+    fontSize: 13,
     fontWeight: '600',
     letterSpacing: 1,
   },
@@ -327,4 +356,3 @@ const styles = StyleSheet.create({
     borderRightWidth: 1,
   },
 });
-

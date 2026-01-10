@@ -22,9 +22,9 @@ function extractString(value: any): string {
 
 function extractTags(category: any): string[] {
   if (!category) return [];
-  
+
   const tags: string[] = [];
-  
+
   if (typeof category === 'string') {
     tags.push(category);
   } else if (Array.isArray(category)) {
@@ -40,7 +40,7 @@ function extractTags(category: any): string[] {
     const text = category['#text'] || category['@_term'] || '';
     if (text) tags.push(String(text));
   }
-  
+
   // Clean and deduplicate tags, limit to 3
   return [...new Set(tags.map(t => t.trim()).filter(t => t.length > 0))].slice(0, 3);
 }
@@ -59,25 +59,71 @@ function formatDate(dateString?: string): string {
     const date = new Date(dateString);
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-    if (diffHours < 1) {
-      const diffMins = Math.floor(diffMs / (1000 * 60));
-      return `${diffMins}m ago`;
-    } else if (diffHours < 24) {
-      return `${diffHours}h ago`;
-    } else if (diffDays < 7) {
-      return `${diffDays}d ago`;
-    } else {
-      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    if (diffMs < 60 * 1000) {
+      return 'just now';
     }
+
+    const minutes = Math.floor(diffMs / (60 * 1000));
+    if (minutes < 60) {
+      return `${minutes}m ago`;
+    }
+
+    const hours = Math.floor(diffMs / (60 * 60 * 1000));
+    if (hours < 24) {
+      return `${hours}h ago`;
+    }
+
+    const days = Math.floor(diffMs / (24 * 60 * 60 * 1000));
+    if (days < 7) {
+      return `${days}d ago`;
+    }
+
+    // Otherwise, show calendar date
+    const day = date.getDate();
+    const month = date.toLocaleString('en-US', { month: 'short' });
+    const year = date.getFullYear();
+    return `${day} ${month} ${year}`;
   } catch {
     return '';
   }
 }
 
-function parseItems(data: ParsedRSS, sourceName: string): NewsItem[] {
+
+
+
+function extractImage(item: any): string | undefined {
+  // Try common RSS image fields
+  if (item.image) return extractString(item.image);
+  if (item['media:content']?.['@_url']) return item['media:content']['@_url'];
+  if (item['media:thumbnail']?.['@_url']) return item['media:thumbnail']['@_url'];
+  if (item.enclosure?.['@_url'] && item.enclosure['@_type']?.startsWith('image/')) {
+    return item.enclosure['@_url'];
+  }
+
+  // Try to extract image from content:encoded
+  const content = item['content:encoded'] || item.content || '';
+  if (content) {
+    const imgMatch = String(content).match(/<img[^>]+src=["']([^"']+)["']/i);
+    if (imgMatch?.[1]) return imgMatch[1];
+  }
+
+  return undefined;
+}
+
+function extractAuthor(item: any): string | undefined {
+  // Try common RSS author fields
+  if (item['dc:creator']) return extractString(item['dc:creator']);
+  if (item.author) {
+    if (typeof item.author === 'string') return item.author;
+    if (item.author.name) return extractString(item.author.name);
+    return extractString(item.author);
+  }
+  if (item.creator) return extractString(item.creator);
+  return undefined;
+}
+
+function parseItems(data: ParsedRSS, sourceSlug: string, sourceName: string): NewsItem[] {
   const items: NewsItem[] = [];
 
   // Handle RSS 2.0 format
@@ -85,17 +131,23 @@ function parseItems(data: ParsedRSS, sourceName: string): NewsItem[] {
     const channel = data.rss.channel;
     const rssItems = channel.item;
 
+
     if (rssItems) {
       const itemArray = Array.isArray(rssItems) ? rssItems : [rssItems];
       itemArray.forEach((item, index) => {
         if (item.title) {
           items.push({
-            id: generateId(item, sourceName, index),
+            id: generateId(item, sourceSlug, index),
             title: extractString(item.title).trim(),
             link: extractString(item.link),
-            pubDate: formatDate(extractString((item as any).pubDate)),
-            source: sourceName,
-            tags: extractTags((item as any).category),
+            pubDate: formatDate(extractString(item.pubDate)),
+            originalPubDate: extractString(item.pubDate),
+            description: extractString(item?.description),
+            sourceSlug: sourceSlug,
+            sourceName: sourceName,
+            tags: extractTags(item.category),
+            image: extractImage(item),
+            author: extractAuthor(item),
           });
         }
       });
@@ -108,24 +160,30 @@ function parseItems(data: ParsedRSS, sourceName: string): NewsItem[] {
     const entryArray = Array.isArray(entries) ? entries : [entries];
 
     entryArray.forEach((entry, index) => {
-      const title = (entry as any).title;
-      const link = (entry as any).link;
-      const published = (entry as any).published || (entry as any).updated;
-      const entryId = (entry as any).id;
-      const category = (entry as any).category;
+      const title = entry.title;
+      const link = entry.link;
+      const published = entry?.published || entry.updated;
+      const entryId = entry.id;
+      const category = entry.category;
 
       const linkUrl = extractString(link);
       const titleText = extractString(title);
       const idValue = extractString(entryId);
 
+
       if (titleText) {
         items.push({
-          id: generateId({ title: titleText, link: linkUrl, guid: idValue }, sourceName, index),
+          id: generateId({ title: titleText, link: linkUrl, guid: idValue }, sourceSlug, index),
           title: titleText.trim(),
           link: linkUrl,
+          originalPubDate: published || '',
           pubDate: formatDate(extractString(published)),
-          source: sourceName,
+          sourceSlug: sourceSlug,
+          sourceName: sourceName,
           tags: extractTags(category),
+          description: extractString((entry as any).description),
+          image: extractImage(entry),
+          author: extractAuthor(entry),
         });
       }
     });
@@ -154,7 +212,7 @@ export async function fetchFeed(feed: RSSFeed): Promise<NewsItem[]> {
     const xml = await response.text();
     const data = parser.parse(xml) as ParsedRSS;
 
-    return parseItems(data, feed.name);
+    return parseItems(data, feed.slug, feed.name);
   } catch (error) {
     console.warn(`Error fetching ${feed.name}:`, error);
     return [];
@@ -166,9 +224,9 @@ export async function fetchAllFeeds(feeds: RSSFeed[]): Promise<NewsItem[]> {
   const allItems = results.flat();
 
   allItems.sort((a, b) => {
-    if (!a.pubDate && !b.pubDate) return 0;
-    if (!a.pubDate) return 1;
-    if (!b.pubDate) return -1;
+    if (!a.originalPubDate && !b.originalPubDate) return 0;
+    if (!a.originalPubDate) return 1;
+    if (!b.originalPubDate) return -1;
 
     const getMinutes = (str: string): number => {
       if (str.includes('m ago')) return parseInt(str);

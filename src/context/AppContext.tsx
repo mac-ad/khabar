@@ -1,6 +1,6 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { NewsItem } from '../types';
+import { NewsItem, FeedCategory } from '../types';
 import { RSS_FEEDS } from '../constants/feeds';
 
 type TextSize = 'small' | 'medium' | 'large';
@@ -8,7 +8,9 @@ type TextSize = 'small' | 'medium' | 'large';
 interface SourceConfig {
   url: string;
   name: string;
+  slug: string;
   enabled: boolean;
+  category: FeedCategory;
 }
 
 interface AppContextType {
@@ -30,7 +32,12 @@ interface AppContextType {
   // Sources
   sources: SourceConfig[];
   toggleSource: (url: string) => void;
-  getEnabledFeeds: () => { url: string; name: string }[];
+  getEnabledFeeds: () => { url: string; name: string; slug: string }[];
+
+  // Onboarding
+  hasCompletedOnboarding: boolean;
+  isLoadingOnboarding: boolean;
+  completeOnboarding: () => Promise<void>;
 }
 
 const STORAGE_KEYS = {
@@ -38,6 +45,7 @@ const STORAGE_KEYS = {
   TEXT_SIZE: '@khabar_text_size',
   NOTIFICATIONS: '@khabar_notifications',
   SOURCES: '@khabar_sources',
+  ONBOARDING_COMPLETED: '@khabar_onboarding_completed',
 };
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -49,6 +57,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [sources, setSources] = useState<SourceConfig[]>(
     RSS_FEEDS.map(feed => ({ ...feed, enabled: true }))
   );
+  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
+  const [isLoadingOnboarding, setIsLoadingOnboarding] = useState(true);
 
   // Load saved data on mount
   useEffect(() => {
@@ -57,12 +67,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const loadStoredData = async () => {
     try {
-      const [savedArticlesData, textSizeData, notificationsData, sourcesData] = await Promise.all([
+      const [savedArticlesData, textSizeData, notificationsData, sourcesData, onboardingData] = await Promise.all([
         AsyncStorage.getItem(STORAGE_KEYS.SAVED_ARTICLES),
         AsyncStorage.getItem(STORAGE_KEYS.TEXT_SIZE),
         AsyncStorage.getItem(STORAGE_KEYS.NOTIFICATIONS),
         AsyncStorage.getItem(STORAGE_KEYS.SOURCES),
+        AsyncStorage.getItem(STORAGE_KEYS.ONBOARDING_COMPLETED),
       ]);
+
+      // Load onboarding state first
+      setHasCompletedOnboarding(onboardingData === 'true');
+      setIsLoadingOnboarding(false);
 
       if (savedArticlesData) {
         try {
@@ -81,28 +96,32 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         try {
           const parsed = JSON.parse(sourcesData);
           if (Array.isArray(parsed)) {
-            const sanitized = parsed.map((s: any) => ({
-              url: String(s.url || ''),
-              name: String(s.name || ''),
-              enabled: s.enabled === true || s.enabled === 'true',
-            }));
-            setSources(sanitized);
+            // Merge stored preferences with current feed list (in case new feeds were added)
+            const mergedSources = RSS_FEEDS.map(feed => {
+              const stored = parsed.find((s: any) => s.url === feed.url);
+              return {
+                url: feed.url,
+                name: feed.name,
+                slug: feed.slug,
+                category: feed.category,
+                enabled: stored ? (stored.enabled === true || stored.enabled === 'true') : true,
+              };
+            });
+            setSources(mergedSources);
           }
         } catch {
-          // Reset to defaults if data is corrupted
           setSources(RSS_FEEDS.map(feed => ({ ...feed, enabled: true })));
         }
       }
     } catch (error) {
       console.error('Error loading stored data:', error);
-      // Reset to defaults
       setSources(RSS_FEEDS.map(feed => ({ ...feed, enabled: true })));
     }
   };
 
   // Save article
   const saveArticle = useCallback(async (article: NewsItem) => {
-    const updated = [...savedArticles, article];
+    const updated = [article, ...savedArticles];
     setSavedArticles(updated);
     await AsyncStorage.setItem(STORAGE_KEYS.SAVED_ARTICLES, JSON.stringify(updated));
   }, [savedArticles]);
@@ -154,8 +173,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const getEnabledFeeds = useCallback(() => {
     return sources
       .filter(s => s.enabled)
-      .map(s => ({ url: s.url, name: s.name }));
+      .map(s => ({ url: s.url, name: s.name, slug: s.slug }));
   }, [sources]);
+
+  // Complete onboarding
+  const completeOnboarding = useCallback(async () => {
+    setHasCompletedOnboarding(true);
+    await AsyncStorage.setItem(STORAGE_KEYS.ONBOARDING_COMPLETED, 'true');
+  }, []);
 
   return (
     <AppContext.Provider
@@ -172,6 +197,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         sources,
         toggleSource,
         getEnabledFeeds,
+        hasCompletedOnboarding,
+        isLoadingOnboarding,
+        completeOnboarding,
       }}
     >
       {children}
@@ -186,4 +214,3 @@ export const useApp = () => {
   }
   return context;
 };
-

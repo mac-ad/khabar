@@ -8,6 +8,7 @@ import {
     Moon,
     type IconComponent,
 } from '../icons';
+import Gear1 from '../icons/Gear';
 
 // ============================================
 // SIDEBAR CONFIGURATION
@@ -70,8 +71,8 @@ export const SIDEBAR_SECTIONS: SectionConfig[] = [
         items: [
             {
                 id: 'theme',
-                label: 'Dark Mode',
-                icon: Moon,
+                label: 'Theme',
+                icon: ThemeIcon,
             },
             {
                 id: 'textSize',
@@ -86,7 +87,7 @@ export const SIDEBAR_SECTIONS: SectionConfig[] = [
             {
                 id: 'settings',
                 label: 'Settings',
-                icon: SettingsIcon,
+                icon: Gear1,
             },
         ],
     },
@@ -133,7 +134,7 @@ function SourcesIcon({ width = 22, height = 22, color = "#343C54" }: { width?: n
     );
 }
 
-function SettingsIcon({ width = 22, height = 22, color = "#343C54" }: { width?: number; height?: number; color?: string }) {
+export function ThemeIcon({ width = 22, height = 22, color = "#343C54" }: { width?: number; height?: number; color?: string }) {
     return (
         <Svg width={width} height={height} viewBox="0 0 24 24" fill="none">
             <Circle cx="12" cy="12" r="3" fill={color} />

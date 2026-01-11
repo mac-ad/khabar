@@ -34,6 +34,13 @@ A modern, fast, and beautiful news aggregator app for Android & iOS. Built with 
 ---
 
 ## 📸 Screenshots
+<div style="display: flex; gap: 10px; align-items: flex-start;">
+  <img src="https://raw.githubusercontent.com/mac-ad/khabar/refs/heads/main/assets/mockups/first.png" alt="First Mockup" width="200">
+  <img src="https://raw.githubusercontent.com/mac-ad/khabar/refs/heads/main/assets/mockups/second.png" alt="Second Mockup" width="200">
+  <img src="https://raw.githubusercontent.com/mac-ad/khabar/refs/heads/main/assets/mockups/third.png" alt="Third Mockup" width="200">
+  <img src="https://raw.githubusercontent.com/mac-ad/khabar/refs/heads/main/assets/mockups/fourth.png" alt="Fourth Mockup" width="200">
+  
+</div>
 
 
 ## 🗞️ Supported News Sources

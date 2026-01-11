@@ -9,7 +9,19 @@ A modern, fast, and beautiful news aggregator app for Android & iOS. Built with 
 ![React Native](https://img.shields.io/badge/React%20Native-0.81.5-61dafb)
 ![Expo](https://img.shields.io/badge/Expo-54-000020)
 
+
+
 ---
+
+## 📸 Screenshots
+<div style="display: flex; gap: 10px; align-items: flex-start;">
+  <img src="https://raw.githubusercontent.com/mac-ad/khabar/refs/heads/main/assets/mockups/first.png" alt="First Mockup" width="200">
+  <img src="https://raw.githubusercontent.com/mac-ad/khabar/refs/heads/main/assets/mockups/second.png" alt="Second Mockup" width="200">
+  <img src="https://raw.githubusercontent.com/mac-ad/khabar/refs/heads/main/assets/mockups/third.png" alt="Third Mockup" width="200">
+  <img src="https://raw.githubusercontent.com/mac-ad/khabar/refs/heads/main/assets/mockups/fourth.png" alt="Fourth Mockup" width="200">
+  
+</div>
+
 
 ## ✨ Features
 
@@ -32,23 +44,6 @@ A modern, fast, and beautiful news aggregator app for Android & iOS. Built with 
 - **Minimal Permissions** — Only requires internet access
 
 ---
-
-## 📸 Screenshots
-<div style="display: flex; gap: 10px; align-items: flex-start;">
-  <img src="https://raw.githubusercontent.com/mac-ad/khabar/refs/heads/main/assets/mockups/first.png" alt="First Mockup" width="200">
-  <img src="https://raw.githubusercontent.com/mac-ad/khabar/refs/heads/main/assets/mockups/second.png" alt="Second Mockup" width="200">
-  <img src="https://raw.githubusercontent.com/mac-ad/khabar/refs/heads/main/assets/mockups/third.png" alt="Third Mockup" width="200">
-  <img src="https://raw.githubusercontent.com/mac-ad/khabar/refs/heads/main/assets/mockups/fourth.png" alt="Fourth Mockup" width="200">
-  
-</div>
-
-
-## 🗞️ Supported News Sources
-
-### Local (Nepali)
-
-### International
-
 ## 🚀 Getting Started
 
 ### Prerequisites

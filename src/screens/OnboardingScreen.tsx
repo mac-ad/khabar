@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -7,14 +7,16 @@ import {
   Pressable,
   FlatList,
   Animated,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path, Circle, Rect, Line } from 'react-native-svg';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { useApp } from '../context/AppContext';
+import { RSS_FEEDS } from '../constants/feeds';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'Onboarding'>;
@@ -26,6 +28,7 @@ interface OnboardingSlide {
   subtitle: string;
   description: string;
   icon: React.ReactNode;
+  isSourceSelection?: boolean;
 }
 
 // Custom icons for onboarding
@@ -68,23 +71,6 @@ const SaveIcon = () => (
   </Svg>
 );
 
-const OfflineIcon = () => (
-  <Svg width={120} height={120} viewBox="0 0 120 120" fill="none">
-    <Circle cx="60" cy="60" r="40" stroke="#000" strokeWidth="3" fill="none" />
-    <Path d="M40 60L55 75L80 50" stroke="#000" strokeWidth="4" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-    <Path d="M60 15V25" stroke="#000" strokeWidth="2" />
-    <Path d="M60 95V105" stroke="#000" strokeWidth="2" />
-    <Path d="M15 60H25" stroke="#000" strokeWidth="2" />
-    <Path d="M95 60H105" stroke="#000" strokeWidth="2" />
-  </Svg>
-);
-
-const ReadyIcon = () => (
-  <Svg width={120} height={120} viewBox="0 0 120 120" fill="none">
-    <Text style={{ fontSize: 80, fontWeight: '800', fontFamily: 'Georgia' }}>K</Text>
-  </Svg>
-);
-
 // Fallback icon component that uses View-based rendering
 const KhabarIcon = () => (
   <View style={styles.khabarIcon}>
@@ -94,49 +80,86 @@ const KhabarIcon = () => (
   </View>
 );
 
-const slides: OnboardingSlide[] = [
-  {
-    id: '1',
-    title: 'Welcome to Khabar',
-    subtitle: 'Your Daily News Digest',
-    description: 'Stay informed with curated news from trusted sources, all in one clean, distraction-free app.',
-    icon: <KhabarIcon />,
-  },
-  {
-    id: '2',
-    title: 'Multiple Sources',
-    subtitle: 'All Your News in One Place',
-    description: 'Access headlines from OnlineKhabar.com, Nagarik News, Rajdhani Daily, Newsof Nepal, OS Nepal, Techmandu, and more. Enable or disable sources anytime.',
-    icon: <SourcesIcon />,
-  },
-  {
-    id: '3',
-    title: 'Save for Later',
-    subtitle: 'Never Miss Important News',
-    description: 'Bookmark articles to read later. Your saved articles are always available.',
-    icon: <SaveIcon />,
-  },
-  {
-    id: '4',
-    title: 'Works Offline',
-    subtitle: 'Read Anytime, Anywhere',
-    description: 'Already fetched articles are cached automatically. No internet? No problem.',
-    icon: <OfflineIcon />,
-  },
-  {
-    id: '5',
-    title: 'Ready to Start',
-    subtitle: 'Your News Awaits',
-    description: 'Customize your reading experience with dark mode, adjustable text size, and more.',
-    icon: <NewsIcon />,
-  },
-];
+const CheckIcon = () => (
+  <Svg width={20} height={20} viewBox="0 0 20 20" fill="none">
+    <Path d="M4 10L8 14L16 6" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+  </Svg>
+);
 
 export const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
-  const { completeOnboarding } = useApp();
+  const { completeOnboarding, setSources, sources } = useApp();
   const [currentIndex, setCurrentIndex] = useState(0);
   const flatListRef = useRef<FlatList>(null);
   const scrollX = useRef(new Animated.Value(0)).current;
+
+  // Initialize selected sources - only local by default
+  const [selectedSources, setSelectedSources] = useState<Set<string>>(() => {
+    const localSources = RSS_FEEDS.filter(f => f.category === 'local').map(f => f.url);
+    return new Set(localSources);
+  });
+
+  const localFeeds = useMemo(() => RSS_FEEDS.filter(f => f.category === 'local'), []);
+  const internationalFeeds = useMemo(() => RSS_FEEDS.filter(f => f.category === 'international'), []);
+
+  const toggleSourceSelection = (url: string) => {
+    setSelectedSources(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(url)) {
+        newSet.delete(url);
+      } else {
+        newSet.add(url);
+      }
+      return newSet;
+    });
+  };
+
+  const selectAllLocal = () => {
+    setSelectedSources(prev => {
+      const newSet = new Set(prev);
+      localFeeds.forEach(f => newSet.add(f.url));
+      return newSet;
+    });
+  };
+
+  const selectAllInternational = () => {
+    setSelectedSources(prev => {
+      const newSet = new Set(prev);
+      internationalFeeds.forEach(f => newSet.add(f.url));
+      return newSet;
+    });
+  };
+
+  const slides: OnboardingSlide[] = [
+    {
+      id: '1',
+      title: 'Welcome to Khabar',
+      subtitle: 'Your Daily News Digest',
+      description: 'Stay informed with curated news from trusted sources, all in one clean, distraction-free app.',
+      icon: <KhabarIcon />,
+    },
+    {
+      id: '2',
+      title: 'Choose Your Sources',
+      subtitle: 'Personalize Your Feed',
+      description: 'Select the news sources you want to follow. You can change this anytime in settings.',
+      icon: <SourcesIcon />,
+      isSourceSelection: true,
+    },
+    {
+      id: '3',
+      title: 'Save for Later',
+      subtitle: 'Never Miss Important News',
+      description: 'Bookmark articles to read later. Your saved articles are always available.',
+      icon: <SaveIcon />,
+    },
+    {
+      id: '4',
+      title: 'Ready to Start',
+      subtitle: 'Your News Awaits',
+      description: 'Customize your reading experience with dark mode, adjustable text size, and more.',
+      icon: <NewsIcon />,
+    },
+  ];
 
   const handleNext = () => {
     if (currentIndex < slides.length - 1) {
@@ -151,6 +174,12 @@ export const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   const handleGetStarted = async () => {
+    // Save the selected sources
+    const updatedSources = sources.map(source => ({
+      ...source,
+      enabled: selectedSources.has(source.url),
+    }));
+    await setSources(updatedSources);
     await completeOnboarding();
     navigation.replace('Home');
   };
@@ -163,16 +192,84 @@ export const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
 
   const viewabilityConfig = useRef({ viewAreaCoveragePercentThreshold: 50 }).current;
 
+  const renderSourceItem = (feed: typeof RSS_FEEDS[0]) => {
+    const isSelected = selectedSources.has(feed.url);
+    return (
+      <Pressable
+        key={feed.url}
+        style={[styles.sourceItem, isSelected && styles.sourceItemSelected]}
+        onPress={() => toggleSourceSelection(feed.url)}
+      >
+        <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
+          {isSelected && <CheckIcon />}
+        </View>
+        <Text style={[styles.sourceName, isSelected && styles.sourceNameSelected]}>
+          {feed.name}
+        </Text>
+      </Pressable>
+    );
+  };
+
+  const renderSourceSelection = () => (
+    <ScrollView 
+      style={styles.sourceSelectionContainer}
+      contentContainerStyle={styles.sourceSelectionContent}
+      showsVerticalScrollIndicator={false}
+    >
+      {/* Local Sources */}
+      <View style={styles.sourceCategory}>
+        <View style={styles.categoryHeader}>
+          <Text style={styles.categoryTitle}>Local Sources</Text>
+          <Pressable onPress={selectAllLocal}>
+            <Text style={styles.selectAllText}>Select All</Text>
+          </Pressable>
+        </View>
+        <View style={styles.sourceGrid}>
+          {localFeeds.map(renderSourceItem)}
+        </View>
+      </View>
+
+      {/* International Sources */}
+      <View style={styles.sourceCategory}>
+        <View style={styles.categoryHeader}>
+          <Text style={styles.categoryTitle}>International Sources</Text>
+          <Pressable onPress={selectAllInternational}>
+            <Text style={styles.selectAllText}>Select All</Text>
+          </Pressable>
+        </View>
+        <View style={styles.sourceGrid}>
+          {internationalFeeds.map(renderSourceItem)}
+        </View>
+      </View>
+
+      <Text style={styles.sourceHint}>
+        {selectedSources.size} source{selectedSources.size !== 1 ? 's' : ''} selected
+      </Text>
+    </ScrollView>
+  );
+
   const renderSlide = ({ item }: { item: OnboardingSlide }) => (
     <View style={styles.slide}>
-      <View style={styles.iconContainer}>
-        {item.icon}
-      </View>
-      <View style={styles.textContainer}>
-        <Text style={styles.title}>{item.title}</Text>
-        <Text style={styles.subtitle}>{item.subtitle}</Text>
-        <Text style={styles.description}>{item.description}</Text>
-      </View>
+      {item.isSourceSelection ? (
+        <>
+          <View style={styles.sourceSlideHeader}>
+            <Text style={styles.title}>{item.title}</Text>
+            <Text style={styles.subtitle}>{item.subtitle}</Text>
+          </View>
+          {renderSourceSelection()}
+        </>
+      ) : (
+        <>
+          <View style={styles.iconContainer}>
+            {item.icon}
+          </View>
+          <View style={styles.textContainer}>
+            <Text style={styles.title}>{item.title}</Text>
+            <Text style={styles.subtitle}>{item.subtitle}</Text>
+            <Text style={styles.description}>{item.description}</Text>
+          </View>
+        </>
+      )}
     </View>
   );
 
@@ -211,6 +308,7 @@ export const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
   );
 
   const isLastSlide = currentIndex === slides.length - 1;
+  const isSourceSlide = slides[currentIndex]?.isSourceSelection;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -247,8 +345,10 @@ export const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
           style={({ pressed }) => [
             styles.button,
             pressed && styles.buttonPressed,
+            isSourceSlide && selectedSources.size === 0 && styles.buttonDisabled,
           ]}
           onPress={handleNext}
+          disabled={isSourceSlide && selectedSources.size === 0}
         >
           <Text style={styles.buttonText}>
             {isLastSlide ? 'Get Started' : 'Next'}
@@ -282,7 +382,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 40,
+    paddingHorizontal: 24,
   },
   iconContainer: {
     width: 180,
@@ -356,11 +456,89 @@ const styles = StyleSheet.create({
   buttonPressed: {
     opacity: 0.8,
   },
+  buttonDisabled: {
+    backgroundColor: '#ccc',
+  },
   buttonText: {
     color: '#FFFFFF',
     fontSize: 18,
     fontWeight: '700',
     letterSpacing: 0.5,
   },
+  // Source selection styles
+  sourceSlideHeader: {
+    alignItems: 'center',
+    paddingTop: 40,
+    marginBottom: 20,
+  },
+  sourceSelectionContainer: {
+    flex: 1,
+    width: '100%',
+  },
+  sourceSelectionContent: {
+    paddingBottom: 20,
+  },
+  sourceCategory: {
+    marginBottom: 24,
+  },
+  categoryHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  categoryTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#333',
+  },
+  selectAllText: {
+    fontSize: 14,
+    color: '#007AFF',
+    fontWeight: '600',
+  },
+  sourceGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  sourceItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 20,
+    backgroundColor: '#f5f5f5',
+    gap: 8,
+  },
+  sourceItemSelected: {
+    backgroundColor: '#000',
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#ccc',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxSelected: {
+    backgroundColor: '#000',
+    borderColor: '#000',
+  },
+  sourceName: {
+    fontSize: 14,
+    color: '#333',
+    fontWeight: '500',
+  },
+  sourceNameSelected: {
+    color: '#fff',
+  },
+  sourceHint: {
+    textAlign: 'center',
+    color: '#666',
+    fontSize: 14,
+    marginTop: 16,
+  },
 });
-

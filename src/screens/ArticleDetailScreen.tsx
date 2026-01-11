@@ -81,8 +81,6 @@ export const ArticleDetailScreen: React.FC<Props> = ({ route }) => {
         return description.replace(/<img[^>]*>/g, '').replace(/<p[^>]*>/g, '').replace(/<\/p[^>]*>/g, '');
     };
 
-    console.log(article, 'artricle');
-
     return (
         <View style={[styles.container, { backgroundColor: theme.background }]}>
             <ScrollView

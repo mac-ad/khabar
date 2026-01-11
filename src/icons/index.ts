@@ -1,5 +1,4 @@
-// Icon exports - add new icons here
-// Icons from https://lineicons.com/free-icons
+// Icon exports - custom SVG icons
 
 export { default as Home } from './Home2';
 export { default as HomeFilled } from './Home2filled';

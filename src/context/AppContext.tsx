@@ -32,6 +32,7 @@ interface AppContextType {
   // Sources
   sources: SourceConfig[];
   toggleSource: (url: string) => void;
+  setSources: (sources: SourceConfig[]) => Promise<void>;
   getEnabledFeeds: () => { url: string; name: string; slug: string }[];
 
   // Onboarding
@@ -54,7 +55,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [savedArticles, setSavedArticles] = useState<NewsItem[]>([]);
   const [textSize, setTextSizeState] = useState<TextSize>('medium');
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [sources, setSources] = useState<SourceConfig[]>(
+  const [sources, setSourcesState] = useState<SourceConfig[]>(
     RSS_FEEDS.map(feed => ({ ...feed, enabled: true }))
   );
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
@@ -107,15 +108,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 enabled: stored ? (stored.enabled === true || stored.enabled === 'true') : true,
               };
             });
-            setSources(mergedSources);
+            setSourcesState(mergedSources);
           }
         } catch {
-          setSources(RSS_FEEDS.map(feed => ({ ...feed, enabled: true })));
+          setSourcesState(RSS_FEEDS.map(feed => ({ ...feed, enabled: true })));
         }
       }
     } catch (error) {
       console.error('Error loading stored data:', error);
-      setSources(RSS_FEEDS.map(feed => ({ ...feed, enabled: true })));
+      setSourcesState(RSS_FEEDS.map(feed => ({ ...feed, enabled: true })));
     }
   };
 
@@ -165,9 +166,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const updated = sources.map(source =>
       source.url === url ? { ...source, enabled: Boolean(!source.enabled) } : source
     );
-    setSources(updated);
+    setSourcesState(updated);
     await AsyncStorage.setItem(STORAGE_KEYS.SOURCES, JSON.stringify(updated));
   }, [sources]);
+
+  // Set sources (for onboarding)
+  const setSourcesConfig = useCallback(async (newSources: SourceConfig[]) => {
+    setSourcesState(newSources);
+    await AsyncStorage.setItem(STORAGE_KEYS.SOURCES, JSON.stringify(newSources));
+  }, []);
 
   // Get enabled feeds
   const getEnabledFeeds = useCallback(() => {
@@ -196,6 +203,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         toggleNotifications,
         sources,
         toggleSource,
+        setSources: setSourcesConfig,
         getEnabledFeeds,
         hasCompletedOnboarding,
         isLoadingOnboarding,

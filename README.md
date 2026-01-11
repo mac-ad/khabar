@@ -35,36 +35,12 @@ A modern, fast, and beautiful news aggregator app for Android & iOS. Built with 
 
 ## 📸 Screenshots
 
-| Home | Article View | Sidebar |
-|------|--------------|---------|
-| News feed with source badges | Full article reading | Navigation & settings |
-
----
 
 ## 🗞️ Supported News Sources
 
 ### Local (Nepali)
-| Source | Category |
-|--------|----------|
-| Online Khabar | General |
-| Nagarik News | General |
-| Rajdhani Daily | General |
-| News of Nepal | General |
-| OS Nepal | General |
-| Techmandu | Technology |
-| Nepali Post | General |
 
 ### International
-| Source | Category |
-|--------|----------|
-| BBC News | World |
-| Al Jazeera | World |
-| The Guardian | World |
-| NPR News | General |
-| TechCrunch | Technology |
-| Hacker News | Technology |
-
----
 
 ## 🚀 Getting Started
 

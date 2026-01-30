@@ -4,10 +4,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNetInfo } from '@react-native-community/netinfo';
-import { NewsList } from '../components/NewsList';
+import { NewsList, NewsListRef } from '../components/NewsList';
 import { Sidebar } from '../components/Sidebar';
+import { SourceCarousel } from '../components/SourceCarousel';
 import { fetchAllFeeds } from '../services/feedService';
-import { NewsItem } from '../types';
+import { NewsItem, RSSFeed } from '../types';
 import { useTheme } from '../context/ThemeContext';
 import { useApp } from '../context/AppContext';
 import { RootStackParamList } from '../navigation/types';
@@ -25,13 +26,15 @@ type Props = {
 
 export const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const { theme, isDark, toggleTheme } = useTheme();
-  const { getEnabledFeeds } = useApp();
+  const { getEnabledFeeds, sources, isLoadingSources } = useApp();
   const netInfo = useNetInfo();
   const [news, setNews] = useState<NewsItem[]>([]);
+  const [allNews, setAllNews] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [selectedSource, setSelectedSource] = useState<string | null>(null);
 
   // Derive connection status from netInfo
   // null means still determining, so we treat it as potentially connected
@@ -39,6 +42,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
   const slideAnim = useRef(new Animated.Value(-SIDEBAR_WIDTH)).current;
   const isSidebarOpenRef = useRef(false);
+  const newsListRef = useRef<NewsListRef>(null);
 
   const openSidebar = useCallback(() => {
     isSidebarOpenRef.current = true;
@@ -64,7 +68,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const navigateTo = useCallback((screen: keyof RootStackParamList) => {
     closeSidebar();
     setTimeout(() => {
-      navigation.navigate(screen);
+      navigation.navigate(screen as any);
     }, 200);
   }, [closeSidebar, navigation]);
 
@@ -123,14 +127,24 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
       const enabledFeeds = getEnabledFeeds();
 
+      console.log(`Loading news from ${enabledFeeds.length} enabled feeds`);
+
       if (!isConnected) {
         setError('No internet connection. Please check your network and try again.');
         return;
       }
 
+      if (enabledFeeds.length === 0) {
+        setError('No news sources enabled. Please enable some sources in settings.');
+        return;
+      }
+
       const items = await fetchAllFeeds(enabledFeeds);
 
+      console.log(`Fetched ${items.length} news items`);
+
       if (items.length > 0) {
+        setAllNews(items);
         setNews(items);
       } else {
         setError('Unable to load news. Check your connection or enable more sources.');
@@ -147,14 +161,15 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
   // Track if initial load has happened
   const hasLoadedRef = useRef(false);
 
-  // Initial load - wait for network info to be determined
+  // Initial load - wait for sources to be loaded and network info to be determined
   useEffect(() => {
-    // Only load once, and wait for netInfo to be determined (not null)
-    if (!hasLoadedRef.current && netInfo.isConnected !== null) {
+    // Only load once, wait for netInfo, sources to be available, and sources to finish loading
+    if (!hasLoadedRef.current && netInfo.isConnected !== null && !isLoadingSources && sources.length > 0) {
+      console.log('Initial load conditions met, loading news...');
       hasLoadedRef.current = true;
       loadNews();
     }
-  }, [loadNews, netInfo.isConnected]);
+  }, [loadNews, netInfo.isConnected, sources.length, isLoadingSources]);
 
   // Only reload when returning from Sources screen (where feeds may have changed)
   useEffect(() => {
@@ -171,6 +186,29 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const handleRefresh = useCallback(() => {
     loadNews(true);
   }, [loadNews]);
+
+  // Filter news by selected source
+  useEffect(() => {
+    if (selectedSource === null) {
+      setNews(allNews);
+    } else {
+      const filtered = allNews.filter(item => item.sourceSlug === selectedSource);
+      setNews(filtered);
+    }
+  }, [selectedSource, allNews]);
+
+  const handleSourceSelect = useCallback((slug: string | null) => {
+    setSelectedSource(slug);
+    // Scroll to top when source changes
+    setTimeout(() => {
+      newsListRef.current?.scrollToTop();
+    }, 100);
+  }, []);
+
+  // Get enabled sources for the carousel
+  const enabledSources: RSSFeed[] = sources
+    .filter(s => s.enabled)
+    .map(s => ({ url: s.url, name: s.name, slug: s.slug, category: s.category }));
 
   const today = new Date().toLocaleDateString('en-US', {
     weekday: 'long',
@@ -218,7 +256,15 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
         </View>
         <View style={[styles.headerLine, { backgroundColor: theme.headerLine }]} />
 
+        {/* Source Carousel */}
+        <SourceCarousel
+          sources={enabledSources}
+          selectedSource={selectedSource}
+          onSelectSource={handleSourceSelect}
+        />
+
         <NewsList
+          ref={newsListRef}
           items={news}
           loading={loading}
           refreshing={refreshing}

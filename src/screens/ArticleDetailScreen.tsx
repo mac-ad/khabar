@@ -9,7 +9,7 @@ import {
     Share,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import * as Linking from 'expo-linking';
+import * as WebBrowser from 'expo-web-browser';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../context/ThemeContext';
@@ -21,6 +21,8 @@ import ShareIcon from '../icons/Share';
 import RenderHTML from 'react-native-render-html';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ArticleDetail'>;
+
+const sourcesToRemoveImages = ['newsofnepal', 'rajdhanidaily'];
 
 export const ArticleDetailScreen: React.FC<Props> = ({ route }) => {
     const { article } = route.params;
@@ -35,9 +37,9 @@ export const ArticleDetailScreen: React.FC<Props> = ({ route }) => {
         ? (isDark ? sourceColorSet.dark : sourceColorSet.light)
         : theme.textSecondary;
 
-    const handleOpenSource = () => {
+    const handleOpenSource = async () => {
         if (article.link) {
-            Linking.openURL(article.link);
+            await WebBrowser.openBrowserAsync(article.link);
         }
     };
 
@@ -80,6 +82,49 @@ export const ArticleDetailScreen: React.FC<Props> = ({ route }) => {
     const removeImageTags = (description: string) => {
         return description.replace(/<img[^>]*>/g, '').replace(/<p[^>]*>/g, '').replace(/<\/p[^>]*>/g, '');
     };
+
+    const cleanDescription = (description: string) => {
+        let cleaned = description;
+
+        // Remove "The post ... appeared first on ..." footer pattern
+        cleaned = cleaned.replace(/<p>The post <a[^>]*>.*?<\/a> appeared first on <a[^>]*>.*?<\/a>\.<\/p>/gi, '');
+
+        // Remove any remaining "appeared first on" patterns
+        cleaned = cleaned.replace(/The post .* appeared first on .*/gi, '');
+
+        // Remove self-referential links at the end
+        cleaned = cleaned.replace(/<p><a[^>]*rel="nofollow"[^>]*>.*?<\/a><\/p>\s*$/gi, '');
+
+        // Decode common HTML entities
+        cleaned = cleaned
+            .replace(/&#8230;/g, '…')
+            .replace(/&hellip;/g, '…')
+            .replace(/&#8216;/g, "'")
+            .replace(/&#8217;/g, "'")
+            .replace(/&#8220;/g, '"')
+            .replace(/&#8221;/g, '"')
+            .replace(/&ldquo;/g, '"')
+            .replace(/&rdquo;/g, '"')
+            .replace(/&lsquo;/g, "'")
+            .replace(/&rsquo;/g, "'")
+            .replace(/&nbsp;/g, ' ')
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>');
+
+        // Remove image tags if needed
+        if (sourcesToRemoveImages.includes(article?.sourceSlug)) {
+            cleaned = removeImageTags(cleaned);
+        }
+
+        // Remove excessive whitespace and empty paragraphs
+        cleaned = cleaned.replace(/<p>\s*<\/p>/g, '');
+        cleaned = cleaned.replace(/\s{2,}/g, ' ');
+        cleaned = cleaned.trim();
+
+        return cleaned;
+    };
+
 
     return (
         <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -130,19 +175,53 @@ export const ArticleDetailScreen: React.FC<Props> = ({ route }) => {
 
                 {/* Description */}
                 {article.description && (
-                    <RenderHTML
-                        contentWidth={300}
-                        source={{ html: article?.sourceSlug !== "newsofnepal" ? article?.description : removeImageTags(article?.description) }}
-                        baseStyle={{
-                            color: theme.text,
-                            fontSize: 16 * scale,
-                            lineHeight: 22 * scale,
-                            marginBottom: 24,
-                        }}
-                        tagsStyles={{
-                            body: { color: theme.text, fontSize: 16 * scale, lineHeight: 22 * scale, marginBottom: 24 },
-                        }}
-                    />
+                    <View style={styles.descriptionContainer}>
+                        <RenderHTML
+                            contentWidth={300}
+                            source={{ html: cleanDescription(article.description) }}
+                            baseStyle={{
+                                color: theme.text,
+                                fontSize: 16 * scale,
+                                lineHeight: 26 * scale,
+                                marginBottom: 0,
+                            }}
+                            tagsStyles={{
+                                body: {
+                                    color: theme.text,
+                                    fontSize: 16 * scale,
+                                    lineHeight: 26 * scale,
+                                    marginBottom: 0,
+                                },
+                                p: {
+                                    color: theme.text,
+                                    fontSize: 16 * scale,
+                                    lineHeight: 26 * scale,
+                                    marginBottom: 16 * scale,
+                                    marginTop: 0,
+                                },
+                                a: {
+                                    color: theme.textSecondary,
+                                    textDecorationLine: 'none',
+                                },
+                                strong: {
+                                    fontWeight: '700',
+                                    color: theme.text,
+                                },
+                                b: {
+                                    fontWeight: '700',
+                                    color: theme.text,
+                                },
+                                em: {
+                                    fontStyle: 'italic',
+                                    color: theme.text,
+                                },
+                                i: {
+                                    fontStyle: 'italic',
+                                    color: theme.text,
+                                },
+                            }}
+                        />
+                    </View>
                 )}
 
                 {/* Tags */}
@@ -261,6 +340,9 @@ const styles = StyleSheet.create({
         height: 220,
         borderRadius: 12,
         marginBottom: 20,
+    },
+    descriptionContainer: {
+        marginBottom: 24,
     },
     description: {
         lineHeight: 26,

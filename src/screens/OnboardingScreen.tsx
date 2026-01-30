@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,13 +8,13 @@ import {
   FlatList,
   Animated,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path, Circle, Rect, Line } from 'react-native-svg';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { useApp } from '../context/AppContext';
-import { RSS_FEEDS } from '../constants/feeds';
 
 const { width } = Dimensions.get('window');
 
@@ -89,17 +89,27 @@ const CheckIcon = () => (
 export const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
   const { completeOnboarding, setSources, sources } = useApp();
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [isLoadingSources, setIsLoadingSources] = useState(true);
   const flatListRef = useRef<FlatList>(null);
   const scrollX = useRef(new Animated.Value(0)).current;
 
-  // Initialize selected sources - only local by default
-  const [selectedSources, setSelectedSources] = useState<Set<string>>(() => {
-    const localSources = RSS_FEEDS.filter(f => f.category === 'local').map(f => f.url);
-    return new Set(localSources);
-  });
+  // Get available feeds from sources (dynamically loaded)
+  const availableFeeds = useMemo(() => sources, [sources]);
 
-  const localFeeds = useMemo(() => RSS_FEEDS.filter(f => f.category === 'local'), []);
-  const internationalFeeds = useMemo(() => RSS_FEEDS.filter(f => f.category === 'international'), []);
+  // Initialize selected sources - only local by default
+  const [selectedSources, setSelectedSources] = useState<Set<string>>(new Set());
+
+  // Update selected sources when sources are loaded
+  useEffect(() => {
+    if (sources.length > 0) {
+      const localSources = sources.filter(f => f.category === 'local').map(f => f.url);
+      setSelectedSources(new Set(localSources));
+      setIsLoadingSources(false);
+    }
+  }, [sources]);
+
+  const localFeeds = useMemo(() => availableFeeds.filter(f => f.category === 'local'), [availableFeeds]);
+  const internationalFeeds = useMemo(() => availableFeeds.filter(f => f.category === 'international'), [availableFeeds]);
 
   const toggleSourceSelection = (url: string) => {
     setSelectedSources(prev => {
@@ -192,7 +202,7 @@ export const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
 
   const viewabilityConfig = useRef({ viewAreaCoveragePercentThreshold: 50 }).current;
 
-  const renderSourceItem = (feed: typeof RSS_FEEDS[0]) => {
+  const renderSourceItem = (feed: typeof sources[0]) => {
     const isSelected = selectedSources.has(feed.url);
     return (
       <Pressable
@@ -210,43 +220,67 @@ export const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
     );
   };
 
-  const renderSourceSelection = () => (
-    <ScrollView 
-      style={styles.sourceSelectionContainer}
-      contentContainerStyle={styles.sourceSelectionContent}
-      showsVerticalScrollIndicator={false}
-    >
-      {/* Local Sources */}
-      <View style={styles.sourceCategory}>
-        <View style={styles.categoryHeader}>
-          <Text style={styles.categoryTitle}>Local Sources</Text>
-          <Pressable onPress={selectAllLocal}>
-            <Text style={styles.selectAllText}>Select All</Text>
-          </Pressable>
+  const renderSourceSelection = () => {
+    if (isLoadingSources) {
+      return (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#000" />
+          <Text style={styles.loadingText}>Loading sources...</Text>
         </View>
-        <View style={styles.sourceGrid}>
-          {localFeeds.map(renderSourceItem)}
-        </View>
-      </View>
+      );
+    }
 
-      {/* International Sources */}
-      <View style={styles.sourceCategory}>
-        <View style={styles.categoryHeader}>
-          <Text style={styles.categoryTitle}>International Sources</Text>
-          <Pressable onPress={selectAllInternational}>
-            <Text style={styles.selectAllText}>Select All</Text>
-          </Pressable>
+    if (availableFeeds.length === 0) {
+      return (
+        <View style={styles.loadingContainer}>
+          <Text style={styles.errorText}>Unable to load sources</Text>
+          <Text style={styles.errorSubtext}>Please check your connection</Text>
         </View>
-        <View style={styles.sourceGrid}>
-          {internationalFeeds.map(renderSourceItem)}
-        </View>
-      </View>
+      );
+    }
 
-      <Text style={styles.sourceHint}>
-        {selectedSources.size} source{selectedSources.size !== 1 ? 's' : ''} selected
-      </Text>
-    </ScrollView>
-  );
+    return (
+      <ScrollView
+        style={styles.sourceSelectionContainer}
+        contentContainerStyle={styles.sourceSelectionContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Local Sources */}
+        {localFeeds.length > 0 && (
+          <View style={styles.sourceCategory}>
+            <View style={styles.categoryHeader}>
+              <Text style={styles.categoryTitle}>Local Sources</Text>
+              <Pressable onPress={selectAllLocal}>
+                <Text style={styles.selectAllText}>Select All</Text>
+              </Pressable>
+            </View>
+            <View style={styles.sourceGrid}>
+              {localFeeds.map(renderSourceItem)}
+            </View>
+          </View>
+        )}
+
+        {/* International Sources */}
+        {internationalFeeds.length > 0 && (
+          <View style={styles.sourceCategory}>
+            <View style={styles.categoryHeader}>
+              <Text style={styles.categoryTitle}>International Sources</Text>
+              <Pressable onPress={selectAllInternational}>
+                <Text style={styles.selectAllText}>Select All</Text>
+              </Pressable>
+            </View>
+            <View style={styles.sourceGrid}>
+              {internationalFeeds.map(renderSourceItem)}
+            </View>
+          </View>
+        )}
+
+        <Text style={styles.sourceHint}>
+          {selectedSources.size} source{selectedSources.size !== 1 ? 's' : ''} selected
+        </Text>
+      </ScrollView>
+    );
+  };
 
   const renderSlide = ({ item }: { item: OnboardingSlide }) => (
     <View style={styles.slide}>
@@ -540,5 +574,27 @@ const styles = StyleSheet.create({
     color: '#666',
     fontSize: 14,
     marginTop: 16,
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#666',
+    fontWeight: '500',
+  },
+  errorText: {
+    fontSize: 18,
+    color: '#333',
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  errorSubtext: {
+    fontSize: 14,
+    color: '#666',
   },
 });

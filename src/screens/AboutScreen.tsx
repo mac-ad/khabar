@@ -96,15 +96,7 @@ export const AboutScreen: React.FC = () => {
             </Text>
             <View style={[styles.creditRow, { borderBottomColor: theme.separator }]}>
               <Text style={[styles.creditLabel, { color: theme.text }]}>Design & Development</Text>
-              <Text style={[styles.creditValue, { color: theme.textSecondary }]}>Khabar Team</Text>
-            </View>
-            <View style={[styles.creditRow, { borderBottomColor: theme.separator }]}>
-              <Text style={[styles.creditLabel, { color: theme.text }]}>Icons</Text>
-              <Text style={[styles.creditValue, { color: theme.textSecondary }]}>LineIcons</Text>
-            </View>
-            <View style={[styles.creditRow, { borderBottomColor: theme.separator }]}>
-              <Text style={[styles.creditLabel, { color: theme.text }]}>Built with</Text>
-              <Text style={[styles.creditValue, { color: theme.textSecondary }]}>React Native & Expo</Text>
+              <Text style={[styles.creditValue, { color: theme.textSecondary }]}>macad</Text>
             </View>
           </View>
 
@@ -115,23 +107,16 @@ export const AboutScreen: React.FC = () => {
             </Text>
             <Pressable
               style={[styles.linkRow, { borderBottomColor: theme.separator }]}
-              onPress={() => handleLink('https://khabar.app/privacy')}
+              onPress={() => handleLink('https://khabar.macad.dev/privacy')}
             >
               <Text style={[styles.linkText, { color: theme.text }]}>Privacy Policy</Text>
               <Text style={[styles.linkArrow, { color: theme.textMuted }]}>→</Text>
             </Pressable>
             <Pressable
               style={[styles.linkRow, { borderBottomColor: theme.separator }]}
-              onPress={() => handleLink('https://khabar.app/terms')}
+              onPress={() => handleLink('https://khabar.macad.dev/terms')}
             >
               <Text style={[styles.linkText, { color: theme.text }]}>Terms of Service</Text>
-              <Text style={[styles.linkArrow, { color: theme.textMuted }]}>→</Text>
-            </Pressable>
-            <Pressable
-              style={[styles.linkRow, { borderBottomColor: theme.separator }]}
-              onPress={() => handleLink('https://github.com/khabar-app')}
-            >
-              <Text style={[styles.linkText, { color: theme.text }]}>Open Source Licenses</Text>
               <Text style={[styles.linkArrow, { color: theme.textMuted }]}>→</Text>
             </Pressable>
           </View>
@@ -139,7 +124,7 @@ export const AboutScreen: React.FC = () => {
           {/* Footer */}
           <View style={styles.footer}>
             <Text style={[styles.copyright, { color: theme.textMuted }]}>
-              © 2024 Khabar. All rights reserved.
+              © 2026 Khabar. All rights reserved.
             </Text>
             <Text style={[styles.madeWith, { color: theme.textMuted }]}>
               Made with ♥ for news readers

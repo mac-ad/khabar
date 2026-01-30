@@ -70,10 +70,10 @@ export const SettingsScreen: React.FC = () => {
               <Text style={[styles.infoLabel, { color: theme.text }]}>Version</Text>
               <Text style={[styles.infoValue, { color: theme.textMuted }]}>1.0.0</Text>
             </View>
-            <View style={[styles.infoRow, { borderBottomColor: theme.separator }]}>
+            {/* <View style={[styles.infoRow, { borderBottomColor: theme.separator }]}>
               <Text style={[styles.infoLabel, { color: theme.text }]}>Build</Text>
               <Text style={[styles.infoValue, { color: theme.textMuted }]}>2024.01</Text>
-            </View>
+            </View> */}
           </View>
         </Animated.View>
       </ScrollView>

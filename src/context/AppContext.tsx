@@ -1,7 +1,7 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { NewsItem, FeedCategory } from '../types';
-import { RSS_FEEDS } from '../constants/feeds';
+import { NewsItem, FeedCategory, RSSFeed } from '../types';
+import { fetchRemoteSources } from '../services/sourcesService';
 
 type TextSize = 'small' | 'medium' | 'large';
 
@@ -31,9 +31,11 @@ interface AppContextType {
 
   // Sources
   sources: SourceConfig[];
+  isLoadingSources: boolean;
   toggleSource: (url: string) => void;
   setSources: (sources: SourceConfig[]) => Promise<void>;
-  getEnabledFeeds: () => { url: string; name: string; slug: string }[];
+  getEnabledFeeds: () => { url: string; name: string; slug: string; category: FeedCategory }[];
+  refreshSources: () => Promise<void>;
 
   // Onboarding
   hasCompletedOnboarding: boolean;
@@ -47,6 +49,7 @@ const STORAGE_KEYS = {
   NOTIFICATIONS: '@khabar_notifications',
   SOURCES: '@khabar_sources',
   ONBOARDING_COMPLETED: '@khabar_onboarding_completed',
+  AVAILABLE_FEEDS: '@khabar_available_feeds',
 };
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -55,15 +58,44 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [savedArticles, setSavedArticles] = useState<NewsItem[]>([]);
   const [textSize, setTextSizeState] = useState<TextSize>('medium');
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [sources, setSourcesState] = useState<SourceConfig[]>(
-    RSS_FEEDS.map(feed => ({ ...feed, enabled: true }))
-  );
+  const [availableFeeds, setAvailableFeeds] = useState<RSSFeed[]>([]);
+  const [sources, setSourcesState] = useState<SourceConfig[]>([]);
+  const [isLoadingSources, setIsLoadingSources] = useState(true);
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
   const [isLoadingOnboarding, setIsLoadingOnboarding] = useState(true);
+
+  // Load remote sources on mount
+  useEffect(() => {
+    loadRemoteSources();
+  }, []);
 
   // Load saved data on mount
   useEffect(() => {
     loadStoredData();
+  }, [availableFeeds]);
+
+  const loadRemoteSources = async () => {
+    try {
+      console.log('Loading remote sources...');
+      setIsLoadingSources(true);
+      const remoteSources = await fetchRemoteSources();
+      console.log(`Loaded ${remoteSources.length} sources`);
+      setAvailableFeeds(remoteSources);
+
+      // Store the fetched feeds
+      await AsyncStorage.setItem(STORAGE_KEYS.AVAILABLE_FEEDS, JSON.stringify(remoteSources));
+    } catch (error) {
+      console.error('Error loading remote sources:', error);
+      // availableFeeds will remain empty or use fallback from sourcesService
+    } finally {
+      setIsLoadingSources(false);
+    }
+  };
+
+  const refreshSources = useCallback(async () => {
+    await loadRemoteSources();
+    // After loading new sources, reload stored data to merge preferences
+    await loadStoredData();
   }, []);
 
   const loadStoredData = async () => {
@@ -98,7 +130,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           const parsed = JSON.parse(sourcesData);
           if (Array.isArray(parsed)) {
             // Merge stored preferences with current feed list (in case new feeds were added)
-            const mergedSources = RSS_FEEDS.map(feed => {
+            const mergedSources = availableFeeds.map(feed => {
               const stored = parsed.find((s: any) => s.url === feed.url);
               return {
                 url: feed.url,
@@ -111,12 +143,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             setSourcesState(mergedSources);
           }
         } catch {
-          setSourcesState(RSS_FEEDS.map(feed => ({ ...feed, enabled: true })));
+          setSourcesState(availableFeeds.map(feed => ({ ...feed, enabled: true })));
         }
+      } else {
+        // No stored preferences, enable all available feeds
+        setSourcesState(availableFeeds.map(feed => ({ ...feed, enabled: true })));
       }
     } catch (error) {
       console.error('Error loading stored data:', error);
-      setSourcesState(RSS_FEEDS.map(feed => ({ ...feed, enabled: true })));
+      setSourcesState(availableFeeds.map(feed => ({ ...feed, enabled: true })));
     }
   };
 
@@ -180,7 +215,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const getEnabledFeeds = useCallback(() => {
     return sources
       .filter(s => s.enabled)
-      .map(s => ({ url: s.url, name: s.name, slug: s.slug }));
+      .map(s => ({ url: s.url, name: s.name, slug: s.slug, category: s.category }));
   }, [sources]);
 
   // Complete onboarding
@@ -202,9 +237,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         notificationsEnabled,
         toggleNotifications,
         sources,
+        isLoadingSources,
         toggleSource,
         setSources: setSourcesConfig,
         getEnabledFeeds,
+        refreshSources,
         hasCompletedOnboarding,
         isLoadingOnboarding,
         completeOnboarding,

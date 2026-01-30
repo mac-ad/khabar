@@ -5,6 +5,7 @@ import {
   StyleSheet,
   Pressable,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { useApp } from '../context/AppContext';
@@ -24,11 +25,23 @@ const TABS: { key: FeedCategory; label: string }[] = [
 
 export const ManageSourcesScreen: React.FC = () => {
   const { theme } = useTheme();
-  const { sources, toggleSource } = useApp();
+  const { sources, toggleSource, refreshSources } = useApp();
   const [activeTab, setActiveTab] = useState<FeedCategory>('local');
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const filteredSources = sources.filter(s => s.category === activeTab);
   const enabledCount = filteredSources.filter(s => s.enabled).length;
+
+  const handleRefreshSources = async () => {
+    setIsRefreshing(true);
+    try {
+      await refreshSources();
+    } catch (error) {
+      console.error('Error refreshing sources:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -63,6 +76,22 @@ export const ManageSourcesScreen: React.FC = () => {
         <Text style={[styles.summaryText, { color: theme.textMuted }]}>
           {enabledCount} of {filteredSources.length} enabled
         </Text>
+        <Pressable
+          onPress={handleRefreshSources}
+          disabled={isRefreshing}
+          style={({ pressed }) => [
+            styles.refreshButton,
+            {
+              opacity: pressed || isRefreshing ? 0.6 : 1,
+            }
+          ]}
+        >
+          {isRefreshing ? (
+            <ActivityIndicator size="small" color={theme.text} />
+          ) : (
+            <Text style={[styles.refreshText, { color: theme.text }]}>↻</Text>
+          )}
+        </Pressable>
       </View>
 
       {/* Source List */}
@@ -138,12 +167,26 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   summary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderBottomWidth: 1,
   },
   summaryText: {
     fontSize: 13,
+  },
+  refreshButton: {
+    padding: 4,
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  refreshText: {
+    fontSize: 24,
+    fontWeight: '600',
   },
   list: {
     flex: 1,

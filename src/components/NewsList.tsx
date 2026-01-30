@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useImperativeHandle, forwardRef } from 'react';
 import {
   FlatList,
   StyleSheet,
@@ -24,19 +24,30 @@ interface Props {
   error?: string | null;
 }
 
+export interface NewsListRef {
+  scrollToTop: () => void;
+}
+
 const SCROLL_THRESHOLD = 300;
 
-export const NewsList: React.FC<Props> = ({
+export const NewsList = forwardRef<NewsListRef, Props>(({
   items,
   loading,
   refreshing,
   onRefresh,
   error,
-}) => {
+}, ref) => {
   const { theme } = useTheme();
   const flatListRef = useRef<FlatList>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const buttonOpacity = useRef(new Animated.Value(0)).current;
+
+  // Expose scrollToTop method to parent
+  useImperativeHandle(ref, () => ({
+    scrollToTop: () => {
+      flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+    },
+  }));
 
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const offsetY = event.nativeEvent.contentOffset.y;
@@ -92,7 +103,7 @@ export const NewsList: React.FC<Props> = ({
       <FlatList
         ref={flatListRef}
         data={items}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => `${item.sourceSlug}-${item.id}`}
         renderItem={renderItem}
         showsVerticalScrollIndicator={false}
         style={{ backgroundColor: theme.background }}
@@ -142,7 +153,7 @@ export const NewsList: React.FC<Props> = ({
       </Animated.View>
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {
